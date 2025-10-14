@@ -311,28 +311,32 @@ export const useBLE = () => {
       // Discover services and characteristics
       const deviceWithServices = await device.discoverAllServicesAndCharacteristics();
       
-      // Find the LED control characteristic
+      // Find the LED control characteristics (RX for write, TX for notify)
       const services = await deviceWithServices.services();
-      let ledCharacteristic: Characteristic | null = null;
+      let ledRxCharacteristic: Characteristic | null = null;
+      let ledTxCharacteristic: Characteristic | null = null;
 
       for (const service of services) {
         if (service.uuid.toLowerCase() === ESP32_CONFIG.LED_SERVICE_UUID.toLowerCase()) {
           const characteristics = await service.characteristics();
-          ledCharacteristic = characteristics.find(
-            char => char.uuid.toLowerCase() === ESP32_CONFIG.LED_CHARACTERISTIC_UUID.toLowerCase()
+          ledRxCharacteristic = characteristics.find(
+            char => char.uuid.toLowerCase() === ESP32_CONFIG.LED_RX_CHARACTERISTIC_UUID.toLowerCase()
+          ) || null;
+          ledTxCharacteristic = characteristics.find(
+            char => char.uuid.toLowerCase() === ESP32_CONFIG.LED_TX_CHARACTERISTIC_UUID.toLowerCase()
           ) || null;
           break;
         }
       }
 
-      if (!ledCharacteristic) {
-        throw new Error('LED control characteristic not found');
+      if (!ledRxCharacteristic || !ledTxCharacteristic) {
+        throw new Error('LED control characteristics not found');
       }
 
-      characteristicRef.current = ledCharacteristic;
+      characteristicRef.current = ledRxCharacteristic;
 
-      // Set up notification listener
-      ledCharacteristic.monitor((error, characteristic) => {
+      // Set up notification listener on TX characteristic
+      ledTxCharacteristic.monitor((error, characteristic) => {
         if (error) {
           console.error('Characteristic monitoring error:', error);
           return;
