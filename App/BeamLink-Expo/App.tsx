@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, memo } from 'react';
 import { View, Text, FlatList, StyleSheet, StatusBar } from 'react-native';
 import { useBLE } from './hooks/useBLE';
 import DeviceCard from './components/DeviceCard';
@@ -67,12 +67,12 @@ export default function App() {
     [devices, isESP32Device]
   );
 
-  const handleDevicePress = (device: BLEDeviceInfo) => {
+  const handleDevicePress = useCallback((device: BLEDeviceInfo) => {
     console.log('Device pressed:', device);
     // Device press is now handled by DeviceCard for connection
-  };
+  }, []);
 
-  const handleConnectDevice = async (device: BLEDeviceInfo) => {
+  const handleConnectDevice = useCallback(async (device: BLEDeviceInfo) => {
     console.log('Connecting to device:', device);
     const success = await connectToDevice(device);
     if (success) {
@@ -80,36 +80,80 @@ export default function App() {
     } else {
       console.log('Failed to connect to device');
     }
-  };
+  }, [connectToDevice]);
 
-  const handleDisconnectDevice = async () => {
+  const handleDisconnectDevice = useCallback(async () => {
     console.log('Disconnecting from device');
     await disconnectFromDevice();
-  };
+  }, [disconnectFromDevice]);
 
-  const handleTurnOnLED = async () => {
+  const handleTurnOnLED = useCallback(async () => {
     console.log('Turning on LED');
     await turnOnLED();
-  };
+  }, [turnOnLED]);
 
-  const handleTurnOffLED = async () => {
+  const handleTurnOffLED = useCallback(async () => {
     console.log('Turning off LED');
     await turnOffLED();
-  };
+  }, [turnOffLED]);
 
-  const handleToggleLED = async () => {
+  const handleToggleLED = useCallback(async () => {
     console.log('Toggling LED');
     await toggleLED();
-  };
+  }, [toggleLED]);
 
-  const handleGetLEDStatus = async () => {
+  const handleGetLEDStatus = useCallback(async () => {
     console.log('Getting LED status');
     await getLEDStatus();
-  };
+  }, [getLEDStatus]);
 
-  const handleDismissError = () => {
+  const handleDismissError = useCallback(() => {
     setDismissedError(error);
-  };
+  }, [error]);
+
+  // Memoized render item for FlatList
+  const renderDeviceItem = useCallback(({ item }: { item: BLEDeviceInfo }) => (
+    <DeviceCard
+      device={item}
+      onPress={handleDevicePress}
+      esp32Type={isESP32Device(item)}
+      connectedDevice={connectedDevice}
+      onConnect={handleConnectDevice}
+      onDisconnect={handleDisconnectDevice}
+      onTurnOnLED={handleTurnOnLED}
+      onTurnOffLED={handleTurnOffLED}
+      onToggleLED={handleToggleLED}
+      onGetLEDStatus={handleGetLEDStatus}
+    />
+  ), [
+    handleDevicePress,
+    isESP32Device,
+    connectedDevice,
+    handleConnectDevice,
+    handleDisconnectDevice,
+    handleTurnOnLED,
+    handleTurnOffLED,
+    handleToggleLED,
+    handleGetLEDStatus,
+  ]);
+
+  // Memoized key extractor
+  const keyExtractor = useCallback((item: BLEDeviceInfo) => item.id, []);
+
+  // Memoized empty component
+  const ListEmptyComponent = useMemo(() => (
+    <View style={styles.emptyContainer}>
+      <Text style={styles.emptyTitle}>
+        {showESP32Only ? 'No ESP32 devices found' : 'No devices found'}
+      </Text>
+      <Text style={styles.emptySubtitle}>
+        {scanState === BLEScanState.SCANNING 
+          ? 'Keep scanning...' 
+          : 'Tap "Start Scan" to discover nearby devices'
+        }
+      </Text>
+    </View>
+  ), [showESP32Only, scanState]);
 
   // Show BLE unavailable screen
   if (scanState === BLEScanState.ERROR && !isBluetoothEnabled) {
@@ -178,36 +222,21 @@ export default function App() {
       {/* Device List */}
       <FlatList
         data={filteredDevices}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <DeviceCard
-            device={item}
-            onPress={handleDevicePress}
-            esp32Type={isESP32Device(item)}
-            connectedDevice={connectedDevice}
-            onConnect={handleConnectDevice}
-            onDisconnect={handleDisconnectDevice}
-            onTurnOnLED={handleTurnOnLED}
-            onTurnOffLED={handleTurnOffLED}
-            onToggleLED={handleToggleLED}
-            onGetLEDStatus={handleGetLEDStatus}
-          />
-        )}
+        keyExtractor={keyExtractor}
+        renderItem={renderDeviceItem}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyTitle}>
-              {showESP32Only ? 'No ESP32 devices found' : 'No devices found'}
-            </Text>
-            <Text style={styles.emptySubtitle}>
-              {scanState === BLEScanState.SCANNING 
-                ? 'Keep scanning...' 
-                : 'Tap "Start Scan" to discover nearby devices'
-              }
-            </Text>
-          </View>
-        }
+        ListEmptyComponent={ListEmptyComponent}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={50}
+        initialNumToRender={10}
+        windowSize={10}
+        getItemLayout={(data, index) => ({
+          length: 200, // Approximate item height
+          offset: 200 * index,
+          index,
+        })}
       />
     </View>
   );
