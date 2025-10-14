@@ -10,20 +10,21 @@ export const ESP32_CONFIG = {
   COMMON_SERVICE_UUIDS: [
     '0000FFE0-0000-1000-8000-00805F9B34FB', // Common ESP32 service
     '0000180A-0000-1000-8000-00805F9B34FB', // Device Information
-    '12345678-1234-1234-1234-123456789abc', // Our LED control service
+    '12345678-1234-1234-1234-1234567890ab', // Our LED control service
   ],
-  NAME_PATTERNS: ['ESP32', 'ESP32-', 'ESP_', 'NodeMCU', 'WROOM', 'WROVER', 'ESP32_LED_Controller'],
-  LED_SERVICE_UUID: '12345678-1234-1234-1234-123456789abc',
-  LED_CHARACTERISTIC_UUID: '87654321-4321-4321-4321-cba987654321',
+  NAME_PATTERNS: ['ESP32', 'ESP32-', 'ESP_', 'NodeMCU', 'WROOM', 'WROVER', 'BeamLink-LED'],
+  LED_SERVICE_UUID: '12345678-1234-1234-1234-1234567890ab',
+  LED_RX_CHARACTERISTIC_UUID: '12345678-1234-1234-1234-1234567890ac', // Write characteristic
+  LED_TX_CHARACTERISTIC_UUID: '12345678-1234-1234-1234-1234567890ad', // Notify characteristic
   LED_COMMANDS: {
-    ON: 'ON',
-    OFF: 'OFF',
-    TOGGLE: 'TOGGLE',
-    STATUS: 'STATUS',
+    ON: 'led:on',
+    OFF: 'led:off',
+    TOGGLE: 'led:toggle',
+    STATUS: 'led:status',
   },
   LED_RESPONSES: {
-    LED_ON: 'LED_ON',
-    LED_OFF: 'LED_OFF',
+    LED_ON: 'LED ON',
+    LED_OFF: 'LED OFF',
   },
 } as const;
 
