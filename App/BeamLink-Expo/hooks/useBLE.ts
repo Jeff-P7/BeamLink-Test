@@ -1,21 +1,20 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { BleManager, Device, State, Characteristic } from 'react-native-ble-plx';
-import { Platform, PermissionsAndroid, Alert } from 'react-native';
-import { BLEDeviceInfo, BLEScanState, BLEDeviceFilter, ESP32DeviceType, BLEConnectionState, LEDState, ConnectedDevice } from '../types/ble';
-import { BLE_CONFIG, ESP32_CONFIG } from '../constants/ble';
+import { BleManager, State } from 'react-native-ble-plx';
+import { BLEDeviceInfo, BLEScanState, BLEDeviceFilter, ESP32DeviceType } from '../types/ble';
+import { ESP32_CONFIG } from '../constants/ble';
+import { useBLEScanning } from './useBLEScanning';
+import { useBLEConnection } from './useBLEConnection';
+import { useErrorHandler } from './useErrorHandler';
 
 export const useBLE = () => {
-  const [scanState, setScanState] = useState<BLEScanState>(BLEScanState.IDLE);
-  const [devices, setDevices] = useState<BLEDeviceInfo[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const [isBluetoothEnabled, setIsBluetoothEnabled] = useState<boolean>(false);
-  const [connectedDevice, setConnectedDevice] = useState<ConnectedDevice | null>(null);
-  const [isListFrozen, setIsListFrozen] = useState<boolean>(false);
   
   const managerRef = useRef<BleManager | null>(null);
-  const scanTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const deviceRef = useRef<Device | null>(null);
-  const characteristicRef = useRef<Characteristic | null>(null);
+  
+  // Use specialized hooks
+  const scanning = useBLEScanning(managerRef);
+  const connection = useBLEConnection();
+  const errorHandler = useErrorHandler();
 
   // Initialize BLE Manager
   useEffect(() => {
@@ -26,9 +25,9 @@ export const useBLE = () => {
       const subscription = managerRef.current.onStateChange((state: State) => {
         setIsBluetoothEnabled(state === 'PoweredOn');
         if (state !== 'PoweredOn') {
-          setError(`Bluetooth is ${state}. Please enable Bluetooth.`);
+          errorHandler.handleBluetoothError(state);
         } else {
-          setError(null);
+          errorHandler.clearAllErrors();
         }
       }, true);
 
@@ -37,81 +36,12 @@ export const useBLE = () => {
         if (managerRef.current) {
           managerRef.current.destroy();
         }
-        if (scanTimeoutRef.current) {
-          clearTimeout(scanTimeoutRef.current);
-        }
       };
     } catch (err) {
-      setError('BLE Manager not available. This app requires a development build.');
+      errorHandler.handleBLEError(err, 'BLE Manager initialization');
       console.warn('BLE Manager initialization failed:', err);
       return () => {}; // Return empty cleanup function
     }
-  }, []);
-
-  // Request permissions
-  const requestPermissions = useCallback(async (): Promise<boolean> => {
-    if (Platform.OS !== 'android') {
-      return true;
-    }
-
-    try {
-      const permissions = [
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-        PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
-        PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
-      ];
-
-      const results = await PermissionsAndroid.requestMultiple(permissions);
-      
-      const allGranted = Object.values(results).every(
-        (result) => result === PermissionsAndroid.RESULTS.GRANTED
-      );
-
-      if (!allGranted) {
-        setError('Bluetooth permissions are required for device scanning.');
-        setScanState(BLEScanState.PERMISSION_DENIED);
-        return false;
-      }
-
-      setError(null);
-      return true;
-    } catch (err) {
-      setError('Failed to request permissions');
-      console.error('Permission request failed:', err);
-      return false;
-    }
-  }, []);
-
-  // Sort devices by RSSI (strongest signal first)
-  const sortDevicesByRSSI = useCallback((deviceList: BLEDeviceInfo[]): BLEDeviceInfo[] => {
-    return [...deviceList].sort((a, b) => {
-      // Handle null/undefined RSSI values
-      if (a.rssi === null || a.rssi === undefined) return 1;
-      if (b.rssi === null || b.rssi === undefined) return -1;
-      
-      // Sort by RSSI (higher values = closer/stronger signal)
-      return b.rssi - a.rssi;
-    });
-  }, []);
-
-  // Convert Device to BLEDeviceInfo
-  const convertToBLEDeviceInfo = useCallback((device: Device): BLEDeviceInfo => {
-    const result: BLEDeviceInfo = {
-      id: device.id,
-      name: device.name || null,
-      rssi: device.rssi,
-      isConnectable: device.isConnectable ?? false,
-    };
-
-    if (device.manufacturerData) {
-      result.manufacturerData = device.manufacturerData.split(' ').map(byte => `0x${byte}`).join(' ');
-    }
-
-    if (device.serviceUUIDs) {
-      result.serviceUUIDs = device.serviceUUIDs;
-    }
-
-    return result;
   }, []);
 
   // Check if device is ESP32
@@ -171,299 +101,81 @@ export const useBLE = () => {
     });
   }, []);
 
-  // Start scanning
+  // Enhanced start scan with error handling
   const startScan = useCallback(async (filter?: BLEDeviceFilter) => {
-    if (!managerRef.current) {
-      setError('BLE Manager not available');
-      return;
-    }
-
-    if (scanState === BLEScanState.SCANNING) {
-      return;
-    }
-
-    const hasPermissions = await requestPermissions();
-    if (!hasPermissions) {
-      return;
-    }
-
     if (!isBluetoothEnabled) {
-      setError('Please enable Bluetooth to scan for devices');
+      errorHandler.handleBluetoothError('disabled');
       return;
     }
 
-    setScanState(BLEScanState.SCANNING);
-    setError(null);
-    setDevices([]);
-    setIsListFrozen(false); // Reset freeze state when starting new scan
-
-    try {
-      managerRef.current.startDeviceScan(null, null, (error, device) => {
-        if (error) {
-          console.warn('Scan error:', error);
-          setError(`Scan error: ${error.message}`);
-          setScanState(BLEScanState.ERROR);
-          return;
-        }
-
-        if (device) {
-          const deviceInfo = convertToBLEDeviceInfo(device);
-          
-          setDevices(prev => {
-            // Check for duplicates and update existing device
-            const existingIndex = prev.findIndex(d => d.id === deviceInfo.id);
-            if (existingIndex >= 0) {
-              // Update existing device with latest info but maintain its position
-              const updated = [...prev];
-              updated[existingIndex] = deviceInfo;
-              return updated;
-            }
-            
-            // If list is frozen, don't add new devices
-            if (isListFrozen) {
-              return prev;
-            }
-            
-            // Add new device if under limit
-            if (prev.length >= BLE_CONFIG.MAX_DEVICES) {
-              return prev;
-            }
-            
-            // For new devices, add to list and sort by RSSI to maintain nearest-first order
-            const newList = [...prev, deviceInfo];
-            return sortDevicesByRSSI(newList);
-          });
-        }
-      });
-
-      // Auto-stop after timeout
-      scanTimeoutRef.current = setTimeout(() => {
-        stopScan();
-      }, BLE_CONFIG.SCAN_TIMEOUT);
-
-    } catch (err) {
-      setError(`Failed to start scan: ${err}`);
-      setScanState(BLEScanState.ERROR);
+    const success = await scanning.startScan(filter);
+    if (!success) {
+      errorHandler.handleBLEError('Failed to start scanning', 'scanning');
     }
-  }, [scanState, isBluetoothEnabled, requestPermissions, convertToBLEDeviceInfo, sortDevicesByRSSI, isListFrozen]);
+  }, [isBluetoothEnabled, scanning, errorHandler]);
 
-  // Stop scanning
-  const stopScan = useCallback(() => {
-    if (managerRef.current && scanState === BLEScanState.SCANNING) {
-      managerRef.current.stopDeviceScan();
-    }
-    
-    if (scanTimeoutRef.current) {
-      clearTimeout(scanTimeoutRef.current);
-      scanTimeoutRef.current = null;
-    }
-    
-    setScanState(BLEScanState.IDLE);
-  }, [scanState]);
-
-  // Clear devices
-  const clearDevices = useCallback(() => {
-    setDevices([]);
-    setError(null);
-  }, []);
-
-  // Sort existing devices by RSSI
-  const sortDevices = useCallback(() => {
-    setDevices(prev => sortDevicesByRSSI(prev));
-  }, [sortDevicesByRSSI]);
-
-  // Freeze/unfreeze the device list to prevent reordering
-  const freezeDeviceList = useCallback(() => {
-    setIsListFrozen(true);
-  }, []);
-
-  const unfreezeDeviceList = useCallback(() => {
-    setIsListFrozen(false);
-  }, []);
-
-  const toggleDeviceListFreeze = useCallback(() => {
-    setIsListFrozen(prev => !prev);
-  }, []);
-
-  // Connect to device
+  // Enhanced connect to device with error handling
   const connectToDevice = useCallback(async (deviceInfo: BLEDeviceInfo) => {
     if (!managerRef.current) {
-      setError('BLE Manager not available');
+      errorHandler.handleBLEError('BLE Manager not available', 'connection');
       return false;
     }
 
-    if (connectedDevice) {
-      setError('Already connected to a device. Disconnect first.');
+    if (connection.connectedDevice) {
+      errorHandler.addError('Already connected to a device. Disconnect first.', 'warning', 'connection');
       return false;
     }
 
-    setError(null);
-    setConnectedDevice({
-      ...deviceInfo,
-      connectionState: BLEConnectionState.CONNECTING,
-      ledState: LEDState.UNKNOWN,
-    });
-
-    try {
-      const device = await managerRef.current.connectToDevice(deviceInfo.id);
-      deviceRef.current = device;
-
-      // Discover services and characteristics
-      const deviceWithServices = await device.discoverAllServicesAndCharacteristics();
-      
-      // Find the LED control characteristics (RX for write, TX for notify)
-      const services = await deviceWithServices.services();
-      let ledRxCharacteristic: Characteristic | null = null;
-      let ledTxCharacteristic: Characteristic | null = null;
-
-      for (const service of services) {
-        if (service.uuid.toLowerCase() === ESP32_CONFIG.LED_SERVICE_UUID.toLowerCase()) {
-          const characteristics = await service.characteristics();
-          ledRxCharacteristic = characteristics.find(
-            char => char.uuid.toLowerCase() === ESP32_CONFIG.LED_RX_CHARACTERISTIC_UUID.toLowerCase()
-          ) || null;
-          ledTxCharacteristic = characteristics.find(
-            char => char.uuid.toLowerCase() === ESP32_CONFIG.LED_TX_CHARACTERISTIC_UUID.toLowerCase()
-          ) || null;
-          break;
-        }
-      }
-
-      if (!ledRxCharacteristic || !ledTxCharacteristic) {
-        throw new Error('LED control characteristics not found');
-      }
-
-      characteristicRef.current = ledRxCharacteristic;
-
-      // Set up notification listener on TX characteristic
-      ledTxCharacteristic.monitor((error, characteristic) => {
-        if (error) {
-          console.error('Characteristic monitoring error:', error);
-          return;
-        }
-
-        if (characteristic?.value) {
-          // Convert base64 to string without using Buffer
-          const response = atob(characteristic.value);
-          console.log('Received response:', response);
-          
-          setConnectedDevice(prev => {
-            if (!prev) return null;
-            
-            let newLedState = prev.ledState;
-            if (response === ESP32_CONFIG.LED_RESPONSES.LED_ON) {
-              newLedState = LEDState.ON;
-            } else if (response === ESP32_CONFIG.LED_RESPONSES.LED_OFF) {
-              newLedState = LEDState.OFF;
-            }
-
-            return {
-              ...prev,
-              ledState: newLedState,
-              lastResponse: response,
-            };
-          });
-        }
-      });
-
-      // Update connection state
-      setConnectedDevice(prev => prev ? {
-        ...prev,
-        connectionState: BLEConnectionState.CONNECTED,
-      } : null);
-
-      return true;
-    } catch (err) {
-      console.error('Connection error:', err);
-      setError(`Failed to connect: ${err}`);
-      setConnectedDevice(null);
-      deviceRef.current = null;
-      characteristicRef.current = null;
-      return false;
+    errorHandler.clearAllErrors();
+    const success = await connection.connectToDevice(deviceInfo, managerRef.current);
+    if (!success) {
+      errorHandler.handleBLEError('Failed to connect to device', 'connection');
     }
-  }, [connectedDevice]);
+    return success;
+  }, [connection, managerRef, errorHandler]);
 
-  // Disconnect from device
+  // Enhanced disconnect with error handling
   const disconnectFromDevice = useCallback(async () => {
-    if (deviceRef.current) {
-      try {
-        await deviceRef.current.cancelConnection();
-      } catch (err) {
-        console.error('Disconnect error:', err);
-      }
-    }
-
-    setConnectedDevice(null);
-    deviceRef.current = null;
-    characteristicRef.current = null;
-    setError(null);
-  }, []);
-
-  // Send LED command
-  const sendLEDCommand = useCallback(async (command: string) => {
-    if (!characteristicRef.current || !connectedDevice) {
-      setError('Not connected to device');
-      return false;
-    }
-
-    if (connectedDevice.connectionState !== BLEConnectionState.CONNECTED) {
-      setError('Device not connected');
-      return false;
-    }
-
     try {
-      // Convert string to base64 without using Buffer
-      const commandBase64 = btoa(command);
-      await characteristicRef.current.writeWithResponse(commandBase64);
-
-      setConnectedDevice(prev => prev ? {
-        ...prev,
-        lastCommand: command,
-      } : null);
-
-      return true;
+      await connection.disconnectFromDevice();
+      errorHandler.clearAllErrors();
     } catch (err) {
-      console.error('Command send error:', err);
-      setError(`Failed to send command: ${err}`);
-      return false;
+      errorHandler.handleBLEError(err, 'disconnection');
     }
-  }, [connectedDevice]);
-
-  // LED control functions
-  const turnOnLED = useCallback(() => sendLEDCommand(ESP32_CONFIG.LED_COMMANDS.ON), [sendLEDCommand]);
-  const turnOffLED = useCallback(() => sendLEDCommand(ESP32_CONFIG.LED_COMMANDS.OFF), [sendLEDCommand]);
-  const toggleLED = useCallback(() => sendLEDCommand(ESP32_CONFIG.LED_COMMANDS.TOGGLE), [sendLEDCommand]);
-  const getLEDStatus = useCallback(() => sendLEDCommand(ESP32_CONFIG.LED_COMMANDS.STATUS), [sendLEDCommand]);
+  }, [connection, errorHandler]);
 
   return {
     // State
-    scanState,
-    devices,
-    error,
+    scanState: scanning.scanState,
+    devices: scanning.devices,
+    error: errorHandler.currentError?.message || null,
     isBluetoothEnabled,
-    connectedDevice,
-    isListFrozen,
+    connectedDevice: connection.connectedDevice,
+    isListFrozen: scanning.isListFrozen,
     
     // Actions
     startScan,
-    stopScan,
-    clearDevices,
-    sortDevices,
-    freezeDeviceList,
-    unfreezeDeviceList,
-    toggleDeviceListFreeze,
+    stopScan: scanning.stopScan,
+    clearDevices: scanning.clearDevices,
+    sortDevices: scanning.sortDevices,
+    freezeDeviceList: scanning.freezeDeviceList,
+    unfreezeDeviceList: scanning.unfreezeDeviceList,
+    toggleDeviceListFreeze: scanning.toggleDeviceListFreeze,
     connectToDevice,
     disconnectFromDevice,
     
     // LED Control
-    turnOnLED,
-    turnOffLED,
-    toggleLED,
-    getLEDStatus,
+    turnOnLED: connection.turnOnLED,
+    turnOffLED: connection.turnOffLED,
+    toggleLED: connection.toggleLED,
+    getLEDStatus: connection.getLEDStatus,
     
     // Utilities
     filterDevices,
     isESP32Device,
-    requestPermissions,
+    
+    // Error handling
+    dismissError: errorHandler.dismissError,
+    clearAllErrors: errorHandler.clearAllErrors,
   };
 };
