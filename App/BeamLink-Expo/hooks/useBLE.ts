@@ -340,9 +340,6 @@ export const useBLE = () => {
       }
 
       // Find the LED control characteristics
-      let ledRxCharacteristic: Characteristic | null = null;
-      let ledTxCharacteristic: Characteristic | null = null;
-      
       for (const service of services) {
         if (service.uuid.toLowerCase() === ESP32_CONFIG.LED_SERVICE_UUID.toLowerCase()) {
           const characteristics = await service.characteristics();
