@@ -1,8 +1,5 @@
 #include <Arduino.h>
-#include <FS.h>
-#include <SPIFFS.h>
 #include "BeamLink.h"
-#include "BeamConfig.h"
 #include "BeamUtils.h"
 #include "../data/beam.config.h"
 
@@ -19,30 +16,23 @@ int readLightLevel() {
   return random(0, 1024); // 0-1023
 }
 
-BeamConfig config;
 BeamLink beam;
 
 void setup() {
   Serial.begin(115200);
   Serial.println("\n=== BeamLink Sensor Monitor ===\n");
   
-  // Initialize SPIFFS
-  if (!SPIFFS.begin(true)) {
-    Serial.println("SPIFFS initialization failed!");
-    return;
-  }
-  
-  // Load configuration
-  if (!loadBeamConfig(config)) {
-    Serial.println("Using default configuration");
-  }
-  
   // Initialize BeamLink with compile-time constants from beam.config.h
   if (!beam.begin(BLE_NAME, BLE_POWER_DBM, BLE_ADV_INTERVAL_MS,
-                  BLE_SERVICE_UUID, BLE_RX_UUID, BLE_TX_UUID)) {
+                  BLE_SERVICE_UUID, BLE_CHARACTERISTIC_UUID)) {
     Serial.println("Failed to initialize BeamLink!");
     return;
   }
+  
+  Serial.println("BLE initialized successfully!");
+  Serial.printf("Advertising as: %s\n", BLE_NAME);
+  Serial.printf("Service UUID: %s\n", BLE_SERVICE_UUID);
+  Serial.printf("Characteristic UUID: %s\n", BLE_CHARACTERISTIC_UUID);
   
   // Set up comprehensive message handler
   beam.onMessage([](const std::string& msg, ReplyFn reply) {

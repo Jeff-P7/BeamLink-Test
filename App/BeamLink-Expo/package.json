@@ -14,7 +14,9 @@
     "expo-status-bar": "~3.0.8",
     "react": "19.1.0",
     "react-native": "0.81.4",
-    "react-native-ble-plx": "^3.5.0"
+    "react-native-ble-plx": "^3.5.0",
+    "react-native-logs": "^5.0.1",
+    "react-native-toast-message": "^2.2.0"
   },
   "devDependencies": {
     "@types/react": "~19.1.0",

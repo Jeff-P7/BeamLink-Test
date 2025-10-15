@@ -137,6 +137,14 @@ board_build.filesystem = spiffs
 - Implement custom protocols
 - Build a mobile app companion
 
+### BeamLog (colored logs + emojis)
+- No dependencies; prints ANSI colored logs with emojis.
+- If your terminal shows weird characters, disable colors/emojis via `platformio.ini` build flags.
+- Examples:
+  - `LOG_OK("Flashed firmware");`
+  - `LOG_ERR("Failed to load config");`
+  - `LOG_BLE("Advertising %s", cfg.deviceName.c_str());`
+
 ## License
 
 MIT License - See main BeamLink repository for details

@@ -1,9 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, FlatList, StyleSheet, StatusBar } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useBLE } from './hooks/useBLE';
 import DeviceCard from './components/DeviceCard';
 import ScanControls from './components/ScanControls';
 import ErrorBanner from './components/ErrorBanner';
+import { DevOverlay } from './src/components/DevOverlay';
 import { BLEDeviceInfo, ESP32DeviceType, BLEScanState } from './types/ble';
 import { UI_CONFIG, ESP32_CONFIG } from './constants/ble';
 
@@ -209,6 +211,10 @@ export default function App() {
           </View>
         }
       />
+      
+      {/* Dev Overlay and Toast */}
+      <DevOverlay />
+      <Toast />
     </View>
   );
 }

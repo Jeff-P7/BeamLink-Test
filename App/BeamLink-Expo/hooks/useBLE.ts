@@ -3,6 +3,8 @@ import { BleManager, Device, State, Characteristic } from 'react-native-ble-plx'
 import { Platform, PermissionsAndroid, Alert } from 'react-native';
 import { BLEDeviceInfo, BLEScanState, BLEDeviceFilter, ESP32DeviceType, BLEConnectionState, LEDState, ConnectedDevice } from '../types/ble';
 import { BLE_CONFIG, ESP32_CONFIG } from '../constants/ble';
+import { logBLE, logCFG, logAPP, logError, L } from '../src/utils/logger';
+import { notify } from '../src/utils/notify';
 
 export const useBLE = () => {
   const [scanState, setScanState] = useState<BLEScanState>(BLEScanState.IDLE);
@@ -26,8 +28,10 @@ export const useBLE = () => {
       const subscription = managerRef.current.onStateChange((state: State) => {
         setIsBluetoothEnabled(state === 'PoweredOn');
         if (state !== 'PoweredOn') {
+          logBLE.warn(`${L.EMOJI.ble} Bluetooth is ${state}. Please enable Bluetooth.`);
           setError(`Bluetooth is ${state}. Please enable Bluetooth.`);
         } else {
+          logBLE.info(`${L.EMOJI.ble} Bluetooth enabled`);
           setError(null);
         }
       }, true);
@@ -42,8 +46,8 @@ export const useBLE = () => {
         }
       };
     } catch (err) {
+      logError(`${L.EMOJI.error} BLE Manager initialization failed`, err);
       setError('BLE Manager not available. This app requires a development build.');
-      console.warn('BLE Manager initialization failed:', err);
       return () => {}; // Return empty cleanup function
     }
   }, []);
@@ -68,16 +72,18 @@ export const useBLE = () => {
       );
 
       if (!allGranted) {
+        logBLE.warn(`${L.EMOJI.warn} Bluetooth permissions denied`);
         setError('Bluetooth permissions are required for device scanning.');
         setScanState(BLEScanState.PERMISSION_DENIED);
         return false;
       }
 
+      logBLE.info(`${L.EMOJI.ok} Bluetooth permissions granted`);
       setError(null);
       return true;
     } catch (err) {
+      logError(`${L.EMOJI.error} Permission request failed`, err);
       setError('Failed to request permissions');
-      console.error('Permission request failed:', err);
       return false;
     }
   }, []);
@@ -188,10 +194,12 @@ export const useBLE = () => {
     }
 
     if (!isBluetoothEnabled) {
+      logBLE.warn(`${L.EMOJI.warn} Bluetooth not enabled for scanning`);
       setError('Please enable Bluetooth to scan for devices');
       return;
     }
 
+    logBLE.info(`${L.EMOJI.ble} Starting device scan`);
     setScanState(BLEScanState.SCANNING);
     setError(null);
     setDevices([]);
@@ -200,7 +208,7 @@ export const useBLE = () => {
     try {
       managerRef.current.startDeviceScan(null, null, (error, device) => {
         if (error) {
-          console.warn('Scan error:', error);
+          logError(`${L.EMOJI.error} Scan error`, error.message);
           setError(`Scan error: ${error.message}`);
           setScanState(BLEScanState.ERROR);
           return;
@@ -242,6 +250,7 @@ export const useBLE = () => {
       }, BLE_CONFIG.SCAN_TIMEOUT);
 
     } catch (err) {
+      logError(`${L.EMOJI.error} Failed to start scan`, err);
       setError(`Failed to start scan: ${err}`);
       setScanState(BLEScanState.ERROR);
     }
@@ -250,6 +259,7 @@ export const useBLE = () => {
   // Stop scanning
   const stopScan = useCallback(() => {
     if (managerRef.current && scanState === BLEScanState.SCANNING) {
+      logBLE.info(`${L.EMOJI.ble} Stopping device scan`);
       managerRef.current.stopDeviceScan();
     }
     
@@ -297,6 +307,7 @@ export const useBLE = () => {
       return false;
     }
 
+    logBLE.info(`${L.EMOJI.ble} Connecting to device: ${deviceInfo.name || deviceInfo.id}`);
     setError(null);
     setConnectedDevice({
       ...deviceInfo,
@@ -313,67 +324,65 @@ export const useBLE = () => {
       
       // Find the LED control characteristics (RX for write, TX for notify)
       const services = await deviceWithServices.services();
-      let ledRxCharacteristic: Characteristic | null = null;
-      let ledTxCharacteristic: Characteristic | null = null;
+      let ledCharacteristic: Characteristic | null = null;
 
       // Debug: Log all services and characteristics
-      console.log('Discovered services:');
+      logBLE.debug(`${L.EMOJI.debug} Discovered services: ${services.length}`);
       for (const service of services) {
-        console.log(`  Service: ${service.uuid}`);
+        logBLE.debug(`Service: ${service.uuid}`);
         const characteristics = await service.characteristics();
         for (const char of characteristics) {
-          console.log(`    Characteristic: ${char.uuid}`);
+          logBLE.debug(`  Characteristic: ${char.uuid}`);
         }
       }
 
       // Check if this is a BeamLink device by looking for our service
       let isBeamLinkDevice = false;
       for (const service of services) {
-        if (service.uuid.toLowerCase() === ESP32_CONFIG.LED_SERVICE_UUID.toLowerCase()) {
+        if (service.uuid.toLowerCase() === ESP32_CONFIG.SERVICE_UUID.toLowerCase()) {
           isBeamLinkDevice = true;
           break;
         }
       }
 
       if (!isBeamLinkDevice) {
-        throw new Error(`Device does not support BeamLink protocol. Found ${services.length} services but none match BeamLink service UUID ${ESP32_CONFIG.LED_SERVICE_UUID}. This may be a generic ESP32 device.`);
+        logBLE.warn(`${L.EMOJI.warn} BeamLink service not found; listing services…`);
+        services.forEach((s: any) => logBLE.debug(`svc: ${s.uuid}`));
+        notify.err("BeamLink service not found on this device");
+        throw new Error(`Device does not support BeamLink protocol. Found ${services.length} services but none match BeamLink service UUID ${ESP32_CONFIG.SERVICE_UUID}. This may be a generic ESP32 device.`);
       }
 
-      // Find the LED control characteristics
+      // Find the BeamLink characteristic
       for (const service of services) {
-        if (service.uuid.toLowerCase() === ESP32_CONFIG.LED_SERVICE_UUID.toLowerCase()) {
+        if (service.uuid.toLowerCase() === ESP32_CONFIG.SERVICE_UUID.toLowerCase()) {
           const characteristics = await service.characteristics();
-          ledRxCharacteristic = characteristics.find(
-            char => char.uuid.toLowerCase() === ESP32_CONFIG.LED_RX_CHARACTERISTIC_UUID.toLowerCase()
-          ) || null;
-          ledTxCharacteristic = characteristics.find(
-            char => char.uuid.toLowerCase() === ESP32_CONFIG.LED_TX_CHARACTERISTIC_UUID.toLowerCase()
+          ledCharacteristic = characteristics.find(
+            char => char.uuid.toLowerCase() === ESP32_CONFIG.CHARACTERISTIC_UUID.toLowerCase()
           ) || null;
           break;
         }
       }
 
-      if (!ledRxCharacteristic || !ledTxCharacteristic) {
-        const missingChars = [];
-        if (!ledRxCharacteristic) missingChars.push('RX (write)');
-        if (!ledTxCharacteristic) missingChars.push('TX (notify)');
-        
-        throw new Error(`LED control characteristics not found: ${missingChars.join(', ')}. Looking for service ${ESP32_CONFIG.LED_SERVICE_UUID}. This device may not be running BeamLink firmware.`);
+      if (!ledCharacteristic) {
+        logBLE.warn(`${L.EMOJI.warn} Missing RX/TX characteristics`);
+        notify.err("Missing RX/TX characteristics");
+        throw new Error(`BeamLink characteristic not found. Looking for service ${ESP32_CONFIG.SERVICE_UUID}. This device may not be running BeamLink firmware.`);
       }
 
-      characteristicRef.current = ledRxCharacteristic;
+      logBLE.info(`${L.EMOJI.ok} RX/TX characteristics ready`);
+      characteristicRef.current = ledCharacteristic;
 
-      // Set up notification listener on TX characteristic
-      ledTxCharacteristic.monitor((error, characteristic) => {
+      // Set up notification listener on the characteristic
+      ledCharacteristic.monitor((error, characteristic) => {
         if (error) {
-          console.error('Characteristic monitoring error:', error);
+          logError(`${L.EMOJI.error} Characteristic monitoring error`, error);
           return;
         }
 
         if (characteristic?.value) {
           // Convert base64 to string without using Buffer
           const response = atob(characteristic.value);
-          console.log('Received response:', response);
+          logBLE.info(`${L.EMOJI.info} Received response`, response);
           
           setConnectedDevice(prev => {
             if (!prev) return null;
@@ -400,9 +409,11 @@ export const useBLE = () => {
         connectionState: BLEConnectionState.CONNECTED,
       } : null);
 
+      logBLE.info(`${L.EMOJI.ok} Connected to BeamLink`);
+      notify.ok(`Connected to ${deviceInfo.name ?? deviceInfo.id}`);
       return true;
     } catch (err) {
-      console.error('Connection error:', err);
+      logError(`${L.EMOJI.error} Connection error`, err);
       
       // Provide more specific error messages
       let errorMessage = 'Failed to connect';
@@ -418,6 +429,7 @@ export const useBLE = () => {
         }
       }
       
+      notify.err("Connection failed");
       setError(errorMessage);
       setConnectedDevice(null);
       deviceRef.current = null;
@@ -427,7 +439,7 @@ export const useBLE = () => {
       if (retryCount < BLE_CONFIG.RETRY_ATTEMPTS && 
           (err instanceof Error && 
            (err.message.includes('timeout') || err.message.includes('connection')))) {
-        console.log(`Retrying connection (attempt ${retryCount + 1}/${BLE_CONFIG.RETRY_ATTEMPTS})`);
+        logBLE.info(`${L.EMOJI.info} Retrying connection (attempt ${retryCount + 1}/${BLE_CONFIG.RETRY_ATTEMPTS})`);
         await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
         return connectToDevice(deviceInfo, retryCount + 1);
       }
@@ -440,9 +452,10 @@ export const useBLE = () => {
   const disconnectFromDevice = useCallback(async () => {
     if (deviceRef.current) {
       try {
+        logBLE.info(`${L.EMOJI.ble} Disconnecting from device`);
         await deviceRef.current.cancelConnection();
       } catch (err) {
-        console.error('Disconnect error:', err);
+        logError(`${L.EMOJI.error} Disconnect error`, err);
       }
     }
 
@@ -476,7 +489,7 @@ export const useBLE = () => {
 
       return true;
     } catch (err) {
-      console.error('Command send error:', err);
+      logError(`${L.EMOJI.error} Command send error`, err);
       setError(`Failed to send command: ${err}`);
       return false;
     }
