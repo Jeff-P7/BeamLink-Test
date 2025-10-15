@@ -13,7 +13,11 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSBluetoothAlwaysUsageDescription": "This app uses Bluetooth to connect to ESP32 devices for LED control and sensor monitoring.",
+        "NSBluetoothPeripheralUsageDescription": "This app uses Bluetooth to connect to ESP32 devices for LED control and sensor monitoring."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -25,7 +29,10 @@
       "permissions": [
         "android.permission.BLUETOOTH",
         "android.permission.BLUETOOTH_ADMIN",
-        "android.permission.BLUETOOTH_CONNECT"
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.BLUETOOTH_SCAN",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
       ],
       "package": "com.jp7k0d3z.EXPOBLEAPP"
     },

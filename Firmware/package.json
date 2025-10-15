@@ -1,0 +1,29 @@
+{
+  "name": "beamlink-firmware-tools",
+  "version": "1.0.0",
+  "description": "Stylish build tools for BeamLink firmware development",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prettify:banner": "node tools/pretty/pretty-build.mjs --banner",
+    "flash:fs": "node tools/pretty/pretty-build.mjs --task uploadfs",
+    "flash:fw": "node tools/pretty/pretty-build.mjs --task upload",
+    "flash:all": "node tools/pretty/pretty-build.mjs --task all",
+    "monitor": "node tools/pretty/pretty-build.mjs --task monitor",
+    "test": "node tools/pretty/pretty-build.mjs --task test",
+    "build": "node tools/pretty/pretty-build.mjs --task build",
+    "clean": "node tools/pretty/pretty-build.mjs --task clean"
+  },
+  "devDependencies": {
+    "picocolors": "^1.0.0"
+  },
+  "keywords": [
+    "beamlink",
+    "firmware",
+    "esp32",
+    "platformio",
+    "build-tools"
+  ],
+  "author": "BeamLink Team",
+  "license": "MIT"
+}

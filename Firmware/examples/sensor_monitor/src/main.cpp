@@ -4,6 +4,7 @@
 #include "BeamLink.h"
 #include "BeamConfig.h"
 #include "BeamUtils.h"
+#include "../data/beam.config.h"
 
 // Simulate sensor readings (replace with real sensors in production)
 float readTemperature() {
@@ -36,8 +37,9 @@ void setup() {
     Serial.println("Using default configuration");
   }
   
-  // Initialize BeamLink with config parameters
-  if (!beam.begin(config.deviceName.c_str(), config.advPowerDbm, config.advIntervalMs)) {
+  // Initialize BeamLink with compile-time constants from beam.config.h
+  if (!beam.begin(BLE_NAME, BLE_POWER_DBM, BLE_ADV_INTERVAL_MS,
+                  BLE_SERVICE_UUID, BLE_RX_UUID, BLE_TX_UUID)) {
     Serial.println("Failed to initialize BeamLink!");
     return;
   }
@@ -91,19 +93,19 @@ void setup() {
       reply("MTU: " + std::to_string(beam.getMTU()) + " bytes");
     }
     else if (msg == "info") {
-      std::string info = config.deviceName + " (" + config.deviceId + ") ";
-      info += "FW:" + config.fwVersion;
+      std::string info = std::string(DEVICE_NAME) + " (" + std::string(DEVICE_ID) + ") ";
+      info += "FW:" + std::string(FIRMWARE_VERSION);
       reply(info);
     }
     // Handle command:action format
     else if (parseCommand(msg, cmd, action)) {
       if (cmd == "config") {
         if (action == "name") {
-          reply("Device: " + config.deviceName);
+          reply("Device: " + std::string(DEVICE_NAME));
         } else if (action == "id") {
-          reply("ID: " + config.deviceId);
+          reply("ID: " + std::string(DEVICE_ID));
         } else if (action == "fw") {
-          reply("Firmware: " + config.fwVersion);
+          reply("Firmware: " + std::string(FIRMWARE_VERSION));
         } else {
           reply("Unknown config: " + action);
         }

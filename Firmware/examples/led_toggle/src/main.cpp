@@ -3,6 +3,7 @@
 #include <SPIFFS.h>
 #include "BeamLink.h"
 #include "BeamConfig.h"
+#include "../data/beam.config.h"
 
 BeamConfig config;
 BeamLink beam;
@@ -23,12 +24,13 @@ void setup() {
   }
   
   // Initialize LED pin
-  pinMode(config.ledPin, OUTPUT);
-  digitalWrite(config.ledPin, config.ledActiveHigh ? LOW : HIGH);
-  Serial.printf("LED initialized on pin %d\n", config.ledPin);
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, LED_ACTIVE_HIGH ? LOW : HIGH);
+  Serial.printf("LED initialized on pin %d\n", LED_PIN);
   
-  // Initialize BeamLink BLE with configuration
-  if (!beam.begin(config.deviceName.c_str(), config.advPowerDbm, config.advIntervalMs)) {
+  // Initialize BeamLink BLE with compile-time constants
+  if (!beam.begin(BLE_NAME, BLE_POWER_DBM, BLE_ADV_INTERVAL_MS,
+                  BLE_SERVICE_UUID, BLE_RX_UUID, BLE_TX_UUID)) {
     Serial.println("Failed to initialize BeamLink");
     return;
   }
@@ -36,31 +38,31 @@ void setup() {
   // Set up message handler for LED control
   beam.onMessage([&](const std::string& in, ReplyFn reply) {
     if (in == "led:on") {
-      digitalWrite(config.ledPin, config.ledActiveHigh ? HIGH : LOW);
+      digitalWrite(LED_PIN, LED_ACTIVE_HIGH ? HIGH : LOW);
       reply("LED ON");
       Serial.println("LED turned ON");
     } 
     else if (in == "led:off") {
-      digitalWrite(config.ledPin, config.ledActiveHigh ? LOW : HIGH);
+      digitalWrite(LED_PIN, LED_ACTIVE_HIGH ? LOW : HIGH);
       reply("LED OFF");
       Serial.println("LED turned OFF");
     } 
     else if (in == "led:status") {
-      bool isOn = digitalRead(config.ledPin) == (config.ledActiveHigh ? HIGH : LOW);
+      bool isOn = digitalRead(LED_PIN) == (LED_ACTIVE_HIGH ? HIGH : LOW);
       reply(isOn ? "LED ON" : "LED OFF");
       Serial.printf("LED status: %s\n", isOn ? "ON" : "OFF");
     }
     else if (in == "led:toggle") {
-      bool isOn = digitalRead(config.ledPin) == (config.ledActiveHigh ? HIGH : LOW);
-      digitalWrite(config.ledPin, config.ledActiveHigh ? !isOn : isOn);
+      bool isOn = digitalRead(LED_PIN) == (LED_ACTIVE_HIGH ? HIGH : LOW);
+      digitalWrite(LED_PIN, LED_ACTIVE_HIGH ? !isOn : isOn);
       reply(isOn ? "LED OFF" : "LED ON");
       Serial.printf("LED toggled to: %s\n", isOn ? "OFF" : "ON");
     }
     else if (in == "info") {
-      std::string info = "Device: " + config.deviceName + 
-                        ", ID: " + config.deviceId +
-                        ", Type: " + config.deviceType +
-                        ", FW: " + config.fwVersion;
+      std::string info = "Device: " + std::string(DEVICE_NAME) + 
+                        ", ID: " + std::string(DEVICE_ID) +
+                        ", Type: " + std::string(DEVICE_TYPE) +
+                        ", FW: " + std::string(FIRMWARE_VERSION);
       reply(info);
       Serial.println("Info requested");
     }

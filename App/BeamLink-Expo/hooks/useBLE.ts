@@ -285,8 +285,8 @@ export const useBLE = () => {
     setIsListFrozen(prev => !prev);
   }, []);
 
-  // Connect to device
-  const connectToDevice = useCallback(async (deviceInfo: BLEDeviceInfo) => {
+  // Connect to device with retry logic
+  const connectToDevice = useCallback(async (deviceInfo: BLEDeviceInfo, retryCount = 0) => {
     if (!managerRef.current) {
       setError('BLE Manager not available');
       return false;
@@ -326,6 +326,23 @@ export const useBLE = () => {
         }
       }
 
+      // Check if this is a BeamLink device by looking for our service
+      let isBeamLinkDevice = false;
+      for (const service of services) {
+        if (service.uuid.toLowerCase() === ESP32_CONFIG.LED_SERVICE_UUID.toLowerCase()) {
+          isBeamLinkDevice = true;
+          break;
+        }
+      }
+
+      if (!isBeamLinkDevice) {
+        throw new Error(`Device does not support BeamLink protocol. Found ${services.length} services but none match BeamLink service UUID ${ESP32_CONFIG.LED_SERVICE_UUID}. This may be a generic ESP32 device.`);
+      }
+
+      // Find the LED control characteristics
+      let ledRxCharacteristic: Characteristic | null = null;
+      let ledTxCharacteristic: Characteristic | null = null;
+      
       for (const service of services) {
         if (service.uuid.toLowerCase() === ESP32_CONFIG.LED_SERVICE_UUID.toLowerCase()) {
           const characteristics = await service.characteristics();
@@ -340,7 +357,11 @@ export const useBLE = () => {
       }
 
       if (!ledRxCharacteristic || !ledTxCharacteristic) {
-        throw new Error(`LED control characteristics not found. Looking for service ${ESP32_CONFIG.LED_SERVICE_UUID}`);
+        const missingChars = [];
+        if (!ledRxCharacteristic) missingChars.push('RX (write)');
+        if (!ledTxCharacteristic) missingChars.push('TX (notify)');
+        
+        throw new Error(`LED control characteristics not found: ${missingChars.join(', ')}. Looking for service ${ESP32_CONFIG.LED_SERVICE_UUID}. This device may not be running BeamLink firmware.`);
       }
 
       characteristicRef.current = ledRxCharacteristic;
@@ -385,10 +406,35 @@ export const useBLE = () => {
       return true;
     } catch (err) {
       console.error('Connection error:', err);
-      setError(`Failed to connect: ${err}`);
+      
+      // Provide more specific error messages
+      let errorMessage = 'Failed to connect';
+      if (err instanceof Error) {
+        if (err.message.includes('characteristics not found')) {
+          errorMessage = 'Device not compatible - missing BeamLink service';
+        } else if (err.message.includes('timeout')) {
+          errorMessage = 'Connection timeout - device may be busy';
+        } else if (err.message.includes('permission')) {
+          errorMessage = 'Bluetooth permission denied';
+        } else {
+          errorMessage = `Connection failed: ${err.message}`;
+        }
+      }
+      
+      setError(errorMessage);
       setConnectedDevice(null);
       deviceRef.current = null;
       characteristicRef.current = null;
+      
+      // Retry logic for certain types of errors
+      if (retryCount < BLE_CONFIG.RETRY_ATTEMPTS && 
+          (err instanceof Error && 
+           (err.message.includes('timeout') || err.message.includes('connection')))) {
+        console.log(`Retrying connection (attempt ${retryCount + 1}/${BLE_CONFIG.RETRY_ATTEMPTS})`);
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+        return connectToDevice(deviceInfo, retryCount + 1);
+      }
+      
       return false;
     }
   }, [connectedDevice]);
