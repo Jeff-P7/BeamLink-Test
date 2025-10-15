@@ -316,6 +316,16 @@ export const useBLE = () => {
       let ledRxCharacteristic: Characteristic | null = null;
       let ledTxCharacteristic: Characteristic | null = null;
 
+      // Debug: Log all services and characteristics
+      console.log('Discovered services:');
+      for (const service of services) {
+        console.log(`  Service: ${service.uuid}`);
+        const characteristics = await service.characteristics();
+        for (const char of characteristics) {
+          console.log(`    Characteristic: ${char.uuid}`);
+        }
+      }
+
       for (const service of services) {
         if (service.uuid.toLowerCase() === ESP32_CONFIG.LED_SERVICE_UUID.toLowerCase()) {
           const characteristics = await service.characteristics();
@@ -330,7 +340,7 @@ export const useBLE = () => {
       }
 
       if (!ledRxCharacteristic || !ledTxCharacteristic) {
-        throw new Error('LED control characteristics not found');
+        throw new Error(`LED control characteristics not found. Looking for service ${ESP32_CONFIG.LED_SERVICE_UUID}`);
       }
 
       characteristicRef.current = ledRxCharacteristic;
