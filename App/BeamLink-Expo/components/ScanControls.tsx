@@ -8,6 +8,7 @@ interface ScanControlsProps {
   onStartScan: () => void;
   onStopScan: () => void;
   onClearDevices: () => void;
+  onSortDevices: () => void;
   onToggleFreeze: () => void;
   deviceCount: number;
   isBluetoothEnabled: boolean;
@@ -19,6 +20,7 @@ const ScanControls: React.FC<ScanControlsProps> = ({
   onStartScan,
   onStopScan,
   onClearDevices,
+  onSortDevices,
   onToggleFreeze,
   deviceCount,
   isBluetoothEnabled,
@@ -92,6 +94,16 @@ const ScanControls: React.FC<ScanControlsProps> = ({
             activeOpacity={0.8}
           >
             <Text style={styles.secondaryButtonText}>Clear</Text>
+          </TouchableOpacity>
+        )}
+
+        {deviceCount > 1 && (
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={onSortDevices}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.secondaryButtonText}>Sort</Text>
           </TouchableOpacity>
         )}
       </View>

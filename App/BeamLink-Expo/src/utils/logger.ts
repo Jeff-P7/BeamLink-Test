@@ -1,4 +1,4 @@
-import { logger as createLogger, configLoggerType, transportFunctionType } from "react-native-logs";
+import { logger as createLogger, transportFunctionType } from "react-native-logs";
 
 type LogLevel = 'ok' | 'info' | 'warn' | 'error' | 'debug';
 
@@ -118,8 +118,6 @@ const config = {
 // Create loggers with different extensions
 const baseLogger = createLogger.createLogger(config);
 export const logBLE = baseLogger.extend("BLE");
-export const logCFG = baseLogger.extend("CFG");
-export const logAPP = baseLogger.extend("APP");
 
 // Enhanced error logging with file and function info
 const getCallerInfo = (): { fileName: string; functionName: string } => {

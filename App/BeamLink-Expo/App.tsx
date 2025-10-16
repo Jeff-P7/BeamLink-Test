@@ -20,6 +20,7 @@ export default function App() {
     startScan,
     stopScan,
     clearDevices,
+    sortDevices,
     freezeDeviceList,
     unfreezeDeviceList,
     toggleDeviceListFreeze,
@@ -159,6 +160,7 @@ export default function App() {
         onStartScan={startScan}
         onStopScan={stopScan}
         onClearDevices={clearDevices}
+        onSortDevices={sortDevices}
         onToggleFreeze={toggleDeviceListFreeze}
         deviceCount={devices.length}
         isBluetoothEnabled={isBluetoothEnabled}

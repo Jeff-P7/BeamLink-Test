@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { BleManager, Device, State, Characteristic } from 'react-native-ble-plx';
-import { Platform, PermissionsAndroid, Alert } from 'react-native';
+import { Platform, PermissionsAndroid } from 'react-native';
 import { BLEDeviceInfo, BLEScanState, BLEDeviceFilter, ESP32DeviceType, BLEConnectionState, LEDState, ConnectedDevice } from '../types/ble';
 import { BLE_CONFIG, ESP32_CONFIG } from '../constants/ble';
-import { logBLE, logCFG, logAPP, logError, L } from '../src/utils/logger';
+import { logBLE, logError, L } from '../src/utils/logger';
 import { notify } from '../src/utils/notify';
 
 export const useBLE = () => {
@@ -43,6 +43,9 @@ export const useBLE = () => {
         }
         if (scanTimeoutRef.current) {
           clearTimeout(scanTimeoutRef.current);
+        }
+        if (sortDevicesRef.current) {
+          clearTimeout(sortDevicesRef.current);
         }
       };
     } catch (err) {
@@ -177,6 +180,54 @@ export const useBLE = () => {
     });
   }, []);
 
+  // Sort devices by RSSI (distance) with throttling
+  const sortDevicesRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSortTimeRef = useRef<number>(0);
+  
+  const sortDevices = useCallback(() => {
+    const now = Date.now();
+    const timeSinceLastSort = now - lastSortTimeRef.current;
+    
+    // Only sort if it's been at least 5 seconds since last sort
+    if (timeSinceLastSort < 5000) {
+      // Clear any existing timeout and set a new one
+      if (sortDevicesRef.current) {
+        clearTimeout(sortDevicesRef.current);
+      }
+      
+      const remainingTime = 5000 - timeSinceLastSort;
+      sortDevicesRef.current = setTimeout(() => {
+        sortDevices();
+      }, remainingTime);
+      
+      return;
+    }
+    
+    // Clear any pending timeout
+    if (sortDevicesRef.current) {
+      clearTimeout(sortDevicesRef.current);
+      sortDevicesRef.current = null;
+    }
+    
+    // Update last sort time
+    lastSortTimeRef.current = now;
+    
+    // Sort devices by RSSI (higher RSSI = closer/stronger signal)
+    setDevices(prev => {
+      const sorted = [...prev].sort((a, b) => {
+        // Handle null/undefined RSSI values
+        if (a.rssi === null || a.rssi === undefined) return 1;
+        if (b.rssi === null || b.rssi === undefined) return -1;
+        
+        // Sort by RSSI (higher values = closer/stronger signal)
+        return b.rssi - a.rssi;
+      });
+      
+      logBLE.debug(`${L.EMOJI.debug} Devices sorted by RSSI (${sorted.length} devices)`);
+      return sorted;
+    });
+  }, []);
+
   // Start scanning
   const startScan = useCallback(async (filter?: BLEDeviceFilter) => {
     if (!managerRef.current) {
@@ -237,9 +288,11 @@ export const useBLE = () => {
               return prev;
             }
             
-            // For new devices, add to list and sort by RSSI to maintain nearest-first order
+            // For new devices, add to list and trigger throttled sorting
             const newList = [...prev, deviceInfo];
-            return sortDevicesByRSSI(newList);
+            // Trigger throttled sorting (will only sort if 5+ seconds have passed)
+            sortDevices();
+            return newList;
           });
         }
       });
@@ -254,7 +307,7 @@ export const useBLE = () => {
       setError(`Failed to start scan: ${err}`);
       setScanState(BLEScanState.ERROR);
     }
-  }, [scanState, isBluetoothEnabled, requestPermissions, convertToBLEDeviceInfo, sortDevicesByRSSI, isListFrozen]);
+  }, [scanState, isBluetoothEnabled, requestPermissions, convertToBLEDeviceInfo, sortDevices, isListFrozen]);
 
   // Stop scanning
   const stopScan = useCallback(() => {
@@ -276,11 +329,6 @@ export const useBLE = () => {
     setDevices([]);
     setError(null);
   }, []);
-
-  // Sort existing devices by RSSI
-  const sortDevices = useCallback(() => {
-    setDevices(prev => sortDevicesByRSSI(prev));
-  }, [sortDevicesByRSSI]);
 
   // Freeze/unfreeze the device list to prevent reordering
   const freezeDeviceList = useCallback(() => {
