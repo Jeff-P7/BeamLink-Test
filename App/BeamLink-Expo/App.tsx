@@ -215,7 +215,7 @@ export default function App() {
       />
       
       {/* Dev Overlay and Toast */}
-      <DevOverlay />
+      {/* <DevOverlay /> */}
       <Toast />
     </View>
   );

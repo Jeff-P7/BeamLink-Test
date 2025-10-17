@@ -40,7 +40,7 @@ pio device monitor
 
 ## Configuration
 
-Edit `data/beam.config` to customize your device:
+Edit `include/beam.config.h` to customize your device:
 
 ```ini
 DEVICE_NAME = BeamLink-LED
@@ -82,8 +82,8 @@ Connect using any BLE terminal app (nRF Connect, LightBlue, etc.):
 led_toggle/
 ├── src/
 │   └── main.cpp          # Main application
-├── data/
-│   └── beam.config       # Device configuration
+├── include/
+│   └── beam.config.h     # Device configuration
 ├── platformio.ini        # Build configuration
 └── README.md            # This file
 ```
