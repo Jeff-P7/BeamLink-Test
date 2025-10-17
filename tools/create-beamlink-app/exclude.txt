@@ -1,0 +1,6 @@
+node_modules
+.pio
+build
+*.log
+.DS_Store
+Thumbs.db
