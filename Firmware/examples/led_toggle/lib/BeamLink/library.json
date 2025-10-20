@@ -1,0 +1,38 @@
+{
+  "name": "BeamLink",
+  "version": "1.0.0",
+  "description": "Simple and powerful BLE communication library for ESP32",
+  "keywords": "ble, bluetooth, esp32, communication, wireless",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/beamlink-esp32.git"
+  },
+  "authors": [
+    {
+      "name": "BeamLink Contributors",
+      "maintainer": true
+    }
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/yourusername/beamlink-esp32",
+  "frameworks": "arduino",
+  "platforms": "espressif32",
+  "dependencies": {
+    "h2zero/NimBLE-Arduino": "^1.4.3"
+  },
+  "export": {
+    "include": [
+      "include/*",
+      "src/*",
+      "library.json",
+      "LICENSE",
+      "README.md"
+    ],
+    "exclude": [
+      "examples",
+      "test",
+      "src/main.cpp"
+    ]
+  }
+}
+
