@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { BLEDeviceInfo, ESP32DeviceType, BLEConnectionState, ConnectedDevice } from '../types/ble';
 import { UI_CONFIG } from '../constants/ble';
@@ -17,7 +17,7 @@ interface DeviceCardProps {
   onGetLEDStatus?: () => void;
 }
 
-const DeviceCard: React.FC<DeviceCardProps> = ({ 
+const DeviceCard: React.FC<DeviceCardProps> = memo(({ 
   device, 
   onPress, 
   esp32Type, 
@@ -29,22 +29,22 @@ const DeviceCard: React.FC<DeviceCardProps> = ({
   onToggleLED,
   onGetLEDStatus
 }) => {
-  const getRSSIColor = (rssi: number | null) => {
+  const getRSSIColor = useMemo(() => (rssi: number | null) => {
     if (!rssi) return UI_CONFIG.COLORS.textSecondary;
     if (rssi > -50) return UI_CONFIG.COLORS.success;
     if (rssi > -70) return UI_CONFIG.COLORS.warning;
     return UI_CONFIG.COLORS.error;
-  };
+  }, []);
 
-  const getRSSIStrength = (rssi: number | null) => {
+  const getRSSIStrength = useMemo(() => (rssi: number | null) => {
     if (!rssi) return 'Unknown';
     if (rssi > -50) return 'Excellent';
     if (rssi > -60) return 'Good';
     if (rssi > -70) return 'Fair';
     return 'Weak';
-  };
+  }, []);
 
-  const getESP32BadgeColor = (type: ESP32DeviceType) => {
+  const getESP32BadgeColor = useMemo(() => (type: ESP32DeviceType) => {
     switch (type) {
       case ESP32DeviceType.ESP32: return UI_CONFIG.COLORS.primary;
       case ESP32DeviceType.ESP32_S2: return UI_CONFIG.COLORS.secondary;
@@ -52,14 +52,20 @@ const DeviceCard: React.FC<DeviceCardProps> = ({
       case ESP32DeviceType.ESP32_C3: return '#00BCD4';
       default: return UI_CONFIG.COLORS.textSecondary;
     }
-  };
+  }, []);
 
-  const isThisDeviceConnected = connectedDevice?.id === device.id;
-  const isConnected = isThisDeviceConnected && connectedDevice?.connectionState === BLEConnectionState.CONNECTED;
-  const isConnecting = isThisDeviceConnected && connectedDevice?.connectionState === BLEConnectionState.CONNECTING;
-  const isOtherDeviceConnected = Boolean(connectedDevice && !isThisDeviceConnected);
+  const connectionState = useMemo(() => {
+    const isThisDeviceConnected = connectedDevice?.id === device.id;
+    const isConnected = isThisDeviceConnected && connectedDevice?.connectionState === BLEConnectionState.CONNECTED;
+    const isConnecting = isThisDeviceConnected && connectedDevice?.connectionState === BLEConnectionState.CONNECTING;
+    const isOtherDeviceConnected = Boolean(connectedDevice && !isThisDeviceConnected);
+    
+    return { isThisDeviceConnected, isConnected, isConnecting, isOtherDeviceConnected };
+  }, [connectedDevice, device.id]);
 
-  const handleDevicePress = () => {
+  const { isThisDeviceConnected, isConnected, isConnecting, isOtherDeviceConnected } = connectionState;
+
+  const handleDevicePress = useMemo(() => () => {
     if (isConnected) {
       // If connected, show LED controls (handled by parent)
       onPress?.(device);
@@ -67,21 +73,28 @@ const DeviceCard: React.FC<DeviceCardProps> = ({
       // If not connected and no other device is connected, try to connect
       onConnect?.(device);
     }
-  };
+  }, [isConnected, isOtherDeviceConnected, onPress, onConnect, device]);
 
-  const getConnectionButtonText = () => {
-    if (isConnecting) return 'Connecting...';
-    if (isConnected) return 'Connected';
-    if (isOtherDeviceConnected) return 'Another device connected';
-    return 'Connect';
-  };
+  const connectionButtonProps = useMemo(() => {
+    const getConnectionButtonText = () => {
+      if (isConnecting) return 'Connecting...';
+      if (isConnected) return 'Connected';
+      if (isOtherDeviceConnected) return 'Another device connected';
+      return 'Connect';
+    };
 
-  const getConnectionButtonColor = () => {
-    if (isConnecting) return UI_CONFIG.COLORS.warning;
-    if (isConnected) return UI_CONFIG.COLORS.success;
-    if (isOtherDeviceConnected) return UI_CONFIG.COLORS.textSecondary;
-    return UI_CONFIG.COLORS.primary;
-  };
+    const getConnectionButtonColor = () => {
+      if (isConnecting) return UI_CONFIG.COLORS.warning;
+      if (isConnected) return UI_CONFIG.COLORS.success;
+      if (isOtherDeviceConnected) return UI_CONFIG.COLORS.textSecondary;
+      return UI_CONFIG.COLORS.primary;
+    };
+
+    return {
+      text: getConnectionButtonText(),
+      color: getConnectionButtonColor()
+    };
+  }, [isConnecting, isConnected, isOtherDeviceConnected]);
 
   return (
     <View style={styles.container}>
@@ -151,7 +164,7 @@ const DeviceCard: React.FC<DeviceCardProps> = ({
         <TouchableOpacity
           style={[
             styles.connectionButton,
-            { backgroundColor: getConnectionButtonColor() },
+            { backgroundColor: connectionButtonProps.color },
             (isOtherDeviceConnected || isConnecting) && styles.disabledButton
           ]}
           onPress={handleDevicePress}
@@ -163,7 +176,7 @@ const DeviceCard: React.FC<DeviceCardProps> = ({
             styles.connectionButtonText,
             (isOtherDeviceConnected || isConnecting) && styles.disabledButtonText
           ]}>
-            {getConnectionButtonText()}
+            {connectionButtonProps.text}
           </Text>
         </TouchableOpacity>
 
@@ -331,5 +344,9 @@ const styles = StyleSheet.create({
     marginRight: UI_CONFIG.SPACING.xs,
   },
 });
+
+});
+
+DeviceCard.displayName = 'DeviceCard';
 
 export default DeviceCard;

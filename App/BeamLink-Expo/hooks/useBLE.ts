@@ -91,7 +91,7 @@ export const useBLE = () => {
     }
   }, []);
 
-  // Sort devices by RSSI (strongest signal first)
+  // Sort devices by RSSI (strongest signal first) - optimized with stable sort
   const sortDevicesByRSSI = useCallback((deviceList: BLEDeviceInfo[]): BLEDeviceInfo[] => {
     return [...deviceList].sort((a, b) => {
       // Handle null/undefined RSSI values
@@ -99,7 +99,11 @@ export const useBLE = () => {
       if (b.rssi === null || b.rssi === undefined) return -1;
       
       // Sort by RSSI (higher values = closer/stronger signal)
-      return b.rssi - a.rssi;
+      const rssiDiff = b.rssi - a.rssi;
+      if (rssiDiff !== 0) return rssiDiff;
+      
+      // Stable sort: maintain original order for equal RSSI values
+      return 0;
     });
   }, []);
 
@@ -180,22 +184,23 @@ export const useBLE = () => {
     });
   }, []);
 
-  // Sort devices by RSSI (distance) with throttling
+  // Sort devices by RSSI (distance) with throttling - optimized
   const sortDevicesRef = useRef<NodeJS.Timeout | null>(null);
   const lastSortTimeRef = useRef<number>(0);
+  const SORT_THROTTLE_MS = 2000; // Reduced from 5000ms for better responsiveness
   
   const sortDevices = useCallback(() => {
     const now = Date.now();
     const timeSinceLastSort = now - lastSortTimeRef.current;
     
-    // Only sort if it's been at least 5 seconds since last sort
-    if (timeSinceLastSort < 5000) {
+    // Only sort if it's been at least 2 seconds since last sort
+    if (timeSinceLastSort < SORT_THROTTLE_MS) {
       // Clear any existing timeout and set a new one
       if (sortDevicesRef.current) {
         clearTimeout(sortDevicesRef.current);
       }
       
-      const remainingTime = 5000 - timeSinceLastSort;
+      const remainingTime = SORT_THROTTLE_MS - timeSinceLastSort;
       sortDevicesRef.current = setTimeout(() => {
         sortDevices();
       }, remainingTime);
@@ -212,15 +217,22 @@ export const useBLE = () => {
     // Update last sort time
     lastSortTimeRef.current = now;
     
-    // Sort devices by RSSI (higher RSSI = closer/stronger signal)
+    // Sort devices by RSSI (higher RSSI = closer/stronger signal) - optimized
     setDevices(prev => {
+      // Only sort if there are devices and they're not already sorted
+      if (prev.length <= 1) return prev;
+      
       const sorted = [...prev].sort((a, b) => {
         // Handle null/undefined RSSI values
         if (a.rssi === null || a.rssi === undefined) return 1;
         if (b.rssi === null || b.rssi === undefined) return -1;
         
         // Sort by RSSI (higher values = closer/stronger signal)
-        return b.rssi - a.rssi;
+        const rssiDiff = b.rssi - a.rssi;
+        if (rssiDiff !== 0) return rssiDiff;
+        
+        // Stable sort: maintain original order for equal RSSI values
+        return 0;
       });
       
       logBLE.debug(`${L.EMOJI.debug} Devices sorted by RSSI (${sorted.length} devices)`);
@@ -272,6 +284,17 @@ export const useBLE = () => {
             // Check for duplicates and update existing device
             const existingIndex = prev.findIndex(d => d.id === deviceInfo.id);
             if (existingIndex >= 0) {
+              // Only update if there's a meaningful change (RSSI or name)
+              const existing = prev[existingIndex];
+              const hasSignificantChange = 
+                existing.rssi !== deviceInfo.rssi || 
+                existing.name !== deviceInfo.name ||
+                existing.isConnectable !== deviceInfo.isConnectable;
+              
+              if (!hasSignificantChange) {
+                return prev; // No change, avoid re-render
+              }
+              
               // Update existing device with latest info but maintain its position
               const updated = [...prev];
               updated[existingIndex] = deviceInfo;
@@ -290,7 +313,7 @@ export const useBLE = () => {
             
             // For new devices, add to list and trigger throttled sorting
             const newList = [...prev, deviceInfo];
-            // Trigger throttled sorting (will only sort if 5+ seconds have passed)
+            // Trigger throttled sorting (will only sort if 2+ seconds have passed)
             sortDevices();
             return newList;
           });

@@ -171,14 +171,18 @@ void loop() {
     // Handle BOOT button for LED toggle (simplified - no g_pins)
     // Note: This is a placeholder - implement actual button handling as needed
     static unsigned long lastButtonCheck = 0;
-    if (millis() - lastButtonCheck >= 100) { // Check every 100ms
+    if (millis() - lastButtonCheck >= 200) { // Reduced frequency from 100ms to 200ms
         // Add actual button handling here if needed
         lastButtonCheck = millis();
     }
 
-    // Update BLE connection state
+    // Update BLE connection state (only if changed)
+    static bool lastBleConnected = false;
     bool bleConnected = beam.isConnected();
-    State().set("bleConnected", bleConnected);
+    if (bleConnected != lastBleConnected) {
+        State().set("bleConnected", bleConnected);
+        lastBleConnected = bleConnected;
+    }
 
     // Handle LED blinking mode
     bool ledBlinking = State().get<bool>("ledBlinking", false);
@@ -192,9 +196,13 @@ void loop() {
         }
     }
 
-    // Update hardware LED based on state
+    // Update hardware LED based on state (only if changed)
+    static bool lastLedOn = false;
     bool ledOn = State().get<bool>("ledOn", false);
-    digitalWrite(LED_PIN, LED_ACTIVE_HIGH ? (ledOn ? HIGH : LOW) : (ledOn ? LOW : HIGH));
+    if (ledOn != lastLedOn) {
+        digitalWrite(LED_PIN, LED_ACTIVE_HIGH ? (ledOn ? HIGH : LOW) : (ledOn ? LOW : HIGH));
+        lastLedOn = ledOn;
+    }
 
-    delay(10);
+    delay(20); // Increased from 10ms for better power efficiency
 }

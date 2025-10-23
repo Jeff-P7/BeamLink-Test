@@ -121,6 +121,9 @@ export const logBLE = baseLogger.extend("BLE");
 
 // Enhanced error logging with file and function info
 const getCallerInfo = (): { fileName: string; functionName: string } => {
+  // Skip expensive stack trace parsing in production
+  if (!__DEV__) return { fileName: 'prod', functionName: 'prod' };
+  
   const stack = new Error().stack;
   if (!stack) return { fileName: 'unknown', functionName: 'unknown' };
   

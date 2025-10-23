@@ -1,11 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, StatusBar } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useBLE } from './hooks/useBLE';
 import DeviceCard from './components/DeviceCard';
 import ScanControls from './components/ScanControls';
 import ErrorBanner from './components/ErrorBanner';
-import { DevOverlay } from './src/components/DevOverlay';
+// import { DevOverlay } from './src/components/DevOverlay'; // Disabled for production
 import { BLEDeviceInfo, ESP32DeviceType, BLEScanState } from './types/ble';
 import { UI_CONFIG, ESP32_CONFIG } from './constants/ble';
 
@@ -70,12 +70,12 @@ export default function App() {
     [devices, isESP32Device]
   );
 
-  const handleDevicePress = (device: BLEDeviceInfo) => {
+  const handleDevicePress = useCallback((device: BLEDeviceInfo) => {
     console.log('Device pressed:', device);
     // Device press is now handled by DeviceCard for connection
-  };
+  }, []);
 
-  const handleConnectDevice = async (device: BLEDeviceInfo) => {
+  const handleConnectDevice = useCallback(async (device: BLEDeviceInfo) => {
     console.log('Connecting to device:', device);
     const success = await connectToDevice(device);
     if (success) {
@@ -83,36 +83,36 @@ export default function App() {
     } else {
       console.log('Failed to connect to device');
     }
-  };
+  }, [connectToDevice]);
 
-  const handleDisconnectDevice = async () => {
+  const handleDisconnectDevice = useCallback(async () => {
     console.log('Disconnecting from device');
     await disconnectFromDevice();
-  };
+  }, [disconnectFromDevice]);
 
-  const handleTurnOnLED = async () => {
+  const handleTurnOnLED = useCallback(async () => {
     console.log('Turning on LED');
     await turnOnLED();
-  };
+  }, [turnOnLED]);
 
-  const handleTurnOffLED = async () => {
+  const handleTurnOffLED = useCallback(async () => {
     console.log('Turning off LED');
     await turnOffLED();
-  };
+  }, [turnOffLED]);
 
-  const handleToggleLED = async () => {
+  const handleToggleLED = useCallback(async () => {
     console.log('Toggling LED');
     await toggleLED();
-  };
+  }, [toggleLED]);
 
-  const handleGetLEDStatus = async () => {
+  const handleGetLEDStatus = useCallback(async () => {
     console.log('Getting LED status');
     await getLEDStatus();
-  };
+  }, [getLEDStatus]);
 
-  const handleDismissError = () => {
+  const handleDismissError = useCallback(() => {
     setDismissedError(error);
-  };
+  }, [error]);
 
   // Show BLE unavailable screen
   if (scanState === BLEScanState.ERROR && !isBluetoothEnabled) {
@@ -199,6 +199,11 @@ export default function App() {
         )}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        windowSize={10}
+        initialNumToRender={5}
+        updateCellsBatchingPeriod={100}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyTitle}>
