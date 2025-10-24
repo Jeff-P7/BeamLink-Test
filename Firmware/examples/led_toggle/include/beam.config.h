@@ -11,7 +11,7 @@
 #define BLE_ENABLED true
 #define BLE_NAME "BeamLink-LED"
 #define BLE_POWER_DBM 9
-#define BLE_ADV_INTERVAL_MS 100
+#define BLE_ADV_INTERVAL_MS 200  // Increased from 100ms for better power efficiency
 #define BLE_SERVICE_UUID "12345678-1234-1234-1234-1234567890ab"
 #define BLE_CHARACTERISTIC_UUID "12345678-1234-1234-1234-1234567890ac"
 
@@ -40,7 +40,7 @@
 #define AUTO_RECONNECT true
 #define LOG_LEVEL "INFO"
 #define SERIAL_BAUD 115200
-#define DEBUG_MODE true
+#define DEBUG_MODE false  // Disabled for production performance
 
 // Security Configuration
 #define AUTH_TOKEN ""

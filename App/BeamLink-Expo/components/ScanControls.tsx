@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { BLEScanState } from '../types/ble';
 import { UI_CONFIG } from '../constants/ble';
@@ -15,7 +15,7 @@ interface ScanControlsProps {
   isListFrozen: boolean;
 }
 
-const ScanControls: React.FC<ScanControlsProps> = ({
+const ScanControls: React.FC<ScanControlsProps> = memo(({
   scanState,
   onStartScan,
   onStopScan,
@@ -29,28 +29,36 @@ const ScanControls: React.FC<ScanControlsProps> = ({
   const isScanning = scanState === BLEScanState.SCANNING;
   const canScan = isBluetoothEnabled && scanState !== BLEScanState.PERMISSION_DENIED;
 
-  const getButtonText = () => {
-    if (!isBluetoothEnabled) return 'Enable Bluetooth';
-    if (scanState === BLEScanState.PERMISSION_DENIED) return 'Permissions Required';
-    return isScanning ? 'Stop Scan' : 'Start Scan';
-  };
+  const controlProps = useMemo(() => {
+    const getButtonText = () => {
+      if (!isBluetoothEnabled) return 'Enable Bluetooth';
+      if (scanState === BLEScanState.PERMISSION_DENIED) return 'Permissions Required';
+      return isScanning ? 'Stop Scan' : 'Start Scan';
+    };
 
-  const getStatusText = () => {
-    if (!isBluetoothEnabled) return 'Bluetooth is disabled';
-    if (scanState === BLEScanState.PERMISSION_DENIED) return 'Bluetooth permissions required';
-    if (isScanning) return 'Scanning for devices...';
-    if (deviceCount > 0) return `Found ${deviceCount} device${deviceCount === 1 ? '' : 's'}`;
-    return 'Ready to scan';
-  };
+    const getStatusText = () => {
+      if (!isBluetoothEnabled) return 'Bluetooth is disabled';
+      if (scanState === BLEScanState.PERMISSION_DENIED) return 'Bluetooth permissions required';
+      if (isScanning) return 'Scanning for devices...';
+      if (deviceCount > 0) return `Found ${deviceCount} device${deviceCount === 1 ? '' : 's'}`;
+      return 'Ready to scan';
+    };
 
-  const getStatusColor = () => {
-    if (!isBluetoothEnabled || scanState === BLEScanState.PERMISSION_DENIED) {
-      return UI_CONFIG.COLORS.error;
-    }
-    if (isScanning) return UI_CONFIG.COLORS.primary;
-    if (deviceCount > 0) return UI_CONFIG.COLORS.success;
-    return UI_CONFIG.COLORS.textSecondary;
-  };
+    const getStatusColor = () => {
+      if (!isBluetoothEnabled || scanState === BLEScanState.PERMISSION_DENIED) {
+        return UI_CONFIG.COLORS.error;
+      }
+      if (isScanning) return UI_CONFIG.COLORS.primary;
+      if (deviceCount > 0) return UI_CONFIG.COLORS.success;
+      return UI_CONFIG.COLORS.textSecondary;
+    };
+
+    return {
+      buttonText: getButtonText(),
+      statusText: getStatusText(),
+      statusColor: getStatusColor()
+    };
+  }, [isBluetoothEnabled, scanState, isScanning, deviceCount]);
 
   return (
     <View style={styles.container}>
@@ -62,8 +70,8 @@ const ScanControls: React.FC<ScanControlsProps> = ({
             style={styles.statusIndicator}
           />
         )}
-        <Text style={[styles.statusText, { color: getStatusColor() }]}>
-          {getStatusText()}
+        <Text style={[styles.statusText, { color: controlProps.statusColor }]}>
+          {controlProps.statusText}
         </Text>
       </View>
 
@@ -83,7 +91,7 @@ const ScanControls: React.FC<ScanControlsProps> = ({
             !canScan && styles.disabledButtonText,
             isScanning && styles.stopButtonText,
           ]}>
-            {getButtonText()}
+            {controlProps.buttonText}
           </Text>
         </TouchableOpacity>
 
@@ -243,5 +251,9 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
 });
+
+});
+
+ScanControls.displayName = 'ScanControls';
 
 export default ScanControls;

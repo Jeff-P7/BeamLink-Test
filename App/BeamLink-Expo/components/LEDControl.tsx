@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { LEDState, BLEConnectionState } from '../types/ble';
 import { UI_CONFIG } from '../constants/ble';
@@ -13,7 +13,7 @@ interface LEDControlProps {
   disabled?: boolean;
 }
 
-const LEDControl: React.FC<LEDControlProps> = ({
+const LEDControl: React.FC<LEDControlProps> = memo(({
   ledState,
   connectionState,
   onTurnOn,
@@ -26,41 +26,50 @@ const LEDControl: React.FC<LEDControlProps> = ({
   const isConnecting = connectionState === BLEConnectionState.CONNECTING;
   const isDisabled = disabled || !isConnected || isConnecting;
 
-  const getLEDStatusColor = () => {
-    switch (ledState) {
-      case LEDState.ON: return UI_CONFIG.COLORS.success;
-      case LEDState.OFF: return UI_CONFIG.COLORS.error;
-      default: return UI_CONFIG.COLORS.textSecondary;
-    }
-  };
+  const statusProps = useMemo(() => {
+    const getLEDStatusColor = () => {
+      switch (ledState) {
+        case LEDState.ON: return UI_CONFIG.COLORS.success;
+        case LEDState.OFF: return UI_CONFIG.COLORS.error;
+        default: return UI_CONFIG.COLORS.textSecondary;
+      }
+    };
 
-  const getLEDStatusText = () => {
-    switch (ledState) {
-      case LEDState.ON: return 'ON';
-      case LEDState.OFF: return 'OFF';
-      default: return 'UNKNOWN';
-    }
-  };
+    const getLEDStatusText = () => {
+      switch (ledState) {
+        case LEDState.ON: return 'ON';
+        case LEDState.OFF: return 'OFF';
+        default: return 'UNKNOWN';
+      }
+    };
 
-  const getConnectionStatusText = () => {
-    switch (connectionState) {
-      case BLEConnectionState.CONNECTED: return 'Connected';
-      case BLEConnectionState.CONNECTING: return 'Connecting...';
-      case BLEConnectionState.DISCONNECTING: return 'Disconnecting...';
-      case BLEConnectionState.ERROR: return 'Connection Error';
-      default: return 'Disconnected';
-    }
-  };
+    const getConnectionStatusText = () => {
+      switch (connectionState) {
+        case BLEConnectionState.CONNECTED: return 'Connected';
+        case BLEConnectionState.CONNECTING: return 'Connecting...';
+        case BLEConnectionState.DISCONNECTING: return 'Disconnecting...';
+        case BLEConnectionState.ERROR: return 'Connection Error';
+        default: return 'Disconnected';
+      }
+    };
 
-  const getConnectionStatusColor = () => {
-    switch (connectionState) {
-      case BLEConnectionState.CONNECTED: return UI_CONFIG.COLORS.success;
-      case BLEConnectionState.CONNECTING: return UI_CONFIG.COLORS.warning;
-      case BLEConnectionState.DISCONNECTING: return UI_CONFIG.COLORS.warning;
-      case BLEConnectionState.ERROR: return UI_CONFIG.COLORS.error;
-      default: return UI_CONFIG.COLORS.textSecondary;
-    }
-  };
+    const getConnectionStatusColor = () => {
+      switch (connectionState) {
+        case BLEConnectionState.CONNECTED: return UI_CONFIG.COLORS.success;
+        case BLEConnectionState.CONNECTING: return UI_CONFIG.COLORS.warning;
+        case BLEConnectionState.DISCONNECTING: return UI_CONFIG.COLORS.warning;
+        case BLEConnectionState.ERROR: return UI_CONFIG.COLORS.error;
+        default: return UI_CONFIG.COLORS.textSecondary;
+      }
+    };
+
+    return {
+      ledColor: getLEDStatusColor(),
+      ledText: getLEDStatusText(),
+      connectionText: getConnectionStatusText(),
+      connectionColor: getConnectionStatusColor()
+    };
+  }, [ledState, connectionState]);
 
   return (
     <View style={styles.container}>
@@ -70,8 +79,8 @@ const LEDControl: React.FC<LEDControlProps> = ({
           <Text style={styles.statusLabel}>Connection:</Text>
           <View style={styles.statusValueContainer}>
             {isConnecting && <ActivityIndicator size="small" color={UI_CONFIG.COLORS.warning} />}
-            <Text style={[styles.statusValue, { color: getConnectionStatusColor() }]}>
-              {getConnectionStatusText()}
+            <Text style={[styles.statusValue, { color: statusProps.connectionColor }]}>
+              {statusProps.connectionText}
             </Text>
           </View>
         </View>
@@ -79,9 +88,9 @@ const LEDControl: React.FC<LEDControlProps> = ({
         <View style={styles.statusRow}>
           <Text style={styles.statusLabel}>LED Status:</Text>
           <View style={styles.ledStatusContainer}>
-            <View style={[styles.ledIndicator, { backgroundColor: getLEDStatusColor() }]} />
-            <Text style={[styles.statusValue, { color: getLEDStatusColor() }]}>
-              {getLEDStatusText()}
+            <View style={[styles.ledIndicator, { backgroundColor: statusProps.ledColor }]} />
+            <Text style={[styles.statusValue, { color: statusProps.ledColor }]}>
+              {statusProps.ledText}
             </Text>
           </View>
         </View>
@@ -246,5 +255,9 @@ const styles = StyleSheet.create({
     color: UI_CONFIG.COLORS.textSecondary,
   },
 });
+
+});
+
+LEDControl.displayName = 'LEDControl';
 
 export default LEDControl;

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { UI_CONFIG } from '../constants/ble';
 
@@ -8,37 +8,44 @@ interface ErrorBannerProps {
   type?: 'error' | 'warning' | 'info';
 }
 
-const ErrorBanner: React.FC<ErrorBannerProps> = ({ 
+const ErrorBanner: React.FC<ErrorBannerProps> = memo(({ 
   message, 
   onDismiss, 
   type = 'error' 
 }) => {
   if (!message) return null;
 
-  const getBackgroundColor = () => {
-    switch (type) {
-      case 'warning': return UI_CONFIG.COLORS.warning;
-      case 'info': return UI_CONFIG.COLORS.primary;
-      default: return UI_CONFIG.COLORS.error;
-    }
-  };
+  const colors = useMemo(() => {
+    const getBackgroundColor = () => {
+      switch (type) {
+        case 'warning': return UI_CONFIG.COLORS.warning;
+        case 'info': return UI_CONFIG.COLORS.primary;
+        default: return UI_CONFIG.COLORS.error;
+      }
+    };
 
-  const getTextColor = () => {
-    switch (type) {
-      case 'warning': return '#000';
-      case 'info': return '#fff';
-      default: return '#fff';
-    }
-  };
+    const getTextColor = () => {
+      switch (type) {
+        case 'warning': return '#000';
+        case 'info': return '#fff';
+        default: return '#fff';
+      }
+    };
+
+    return {
+      backgroundColor: getBackgroundColor(),
+      textColor: getTextColor()
+    };
+  }, [type]);
 
   return (
-    <View style={[styles.container, { backgroundColor: getBackgroundColor() }]}>
-      <Text style={[styles.message, { color: getTextColor() }]}>
+    <View style={[styles.container, { backgroundColor: colors.backgroundColor }]}>
+      <Text style={[styles.message, { color: colors.textColor }]}>
         {message}
       </Text>
       {onDismiss && (
         <TouchableOpacity onPress={onDismiss} style={styles.dismissButton}>
-          <Text style={[styles.dismissText, { color: getTextColor() }]}>
+          <Text style={[styles.dismissText, { color: colors.textColor }]}>
             ✕
           </Text>
         </TouchableOpacity>
@@ -70,5 +77,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
+
+});
+
+ErrorBanner.displayName = 'ErrorBanner';
 
 export default ErrorBanner;
