@@ -1,0 +1,165 @@
+# BeamLink Project Rules
+
+## Project Overview
+BeamLink is a cross-platform IoT framework that bridges ESP32 devices and React Native apps through Bluetooth Low Energy (BLE). The project consists of:
+- **ESP32 Firmware**: C++ library with NimBLE stack for BLE communication
+- **React Native App**: TypeScript/Expo app for mobile device control
+- **Template System**: Starter templates for rapid project development
+- **CLI Tools**: Scaffolding and build tools for project management
+
+## Technology Stack
+
+### ESP32 Firmware
+- **Language**: C++17 with Arduino framework
+- **BLE Stack**: NimBLE-Arduino v1.4.3
+- **Build System**: PlatformIO
+- **Memory Management**: RAII patterns, smart pointers, std::string
+- **Configuration**: SPIFFS-based config files with validation
+- **Error Handling**: Comprehensive error checking and recovery
+
+### React Native App
+- **Language**: TypeScript with strict mode
+- **Framework**: Expo SDK ~54.0.12
+- **React**: v19.1.0 with functional components and hooks
+- **BLE Library**: react-native-ble-plx v3.5.0
+- **UI**: Modern, responsive interface with error boundaries
+- **State Management**: React hooks and context patterns
+
+## Code Standards
+
+### ESP32 Firmware Rules
+- Use C++17 features (lambdas, auto, smart pointers)
+- Follow RAII patterns for resource management
+- Use `std::string` instead of C-style strings
+- Implement comprehensive error handling with meaningful error codes
+- Use const references for function parameters when possible
+- Include proper header guards and forward declarations
+- Document public APIs with clear comments
+- Use PlatformIO build flags: `-std=gnu++17 -I include`
+
+### React Native App Rules
+- Use TypeScript with strict mode enabled
+- Follow functional component patterns with hooks
+- Use descriptive variable names and JSDoc comments for complex functions
+- Implement proper error boundaries and loading states
+- Add comprehensive error handling for all async operations
+- Use path aliases: `@/*`, `@/components/*`, `@/hooks/*`, `@/types/*`, `@/constants/*`
+- Prefer modern React patterns (hooks over class components)
+- Implement optimistic updates for better UX
+
+### General Development Rules
+- Keep files small (target ≤ 250-300 LOC); refactor when approaching limit
+- Eliminate duplication; reuse existing functions/components first
+- Maintain clear separation of concerns; no "god" components or classes
+- Never change unrelated code; keep diffs tightly scoped
+- Treat warnings as errors; keep builds and lints clean
+- Write self-documenting code; add comments only for intent or non-obvious tradeoffs
+- Use consistent naming conventions across all components
+
+## Project Structure Rules
+
+### ESP32 Firmware Structure
+```
+Firmware/
+├── BeamLink-ESP32/          # Core library
+│   ├── include/             # Header files
+│   ├── src/                 # Implementation
+│   └── test/               # Unit tests
+└── Template/               # Starter templates
+    └── led_toggle/         # Example template
+        ├── include/        # Configuration files
+        ├── src/            # Source code
+        └── platformio.ini  # Build configuration
+```
+
+### React Native App Structure
+```
+App/BeamLink-Expo/
+├── components/             # UI components
+├── hooks/                  # Custom React hooks
+├── types/                  # TypeScript definitions
+├── constants/              # Configuration constants
+├── src/
+│   ├── components/         # Additional components
+│   └── utils/              # Utility functions
+└── App.tsx                 # Main app component
+```
+
+## BLE Communication Protocol
+
+### Service Structure
+- **Service UUID**: `12345678-1234-1234-1234-1234567890ab`
+- **Characteristic UUID**: `12345678-1234-1234-1234-1234567890ac`
+- **Message Format**: String-based commands with responses
+- **Max Message Size**: 512 bytes with MTU negotiation
+
+### Standard Commands
+- LED Control: `led:on`, `led:off`, `led:toggle`, `led:status`
+- Device Info: `info`, `ping`, `stats`
+- Custom Commands: Extensible string-based protocol
+
+## Build and Development Rules
+
+### ESP32 Development
+- Use PlatformIO for all firmware development
+- Enable C++17 with `-std=gnu++17` build flag
+- Include configuration files in `include/` directory
+- Use SPIFFS for configuration file storage
+- Test with serial monitor at 115200 baud
+- Follow PlatformIO project structure conventions
+
+### React Native Development
+- Use Expo CLI for development and building
+- Install dependencies with `npm install`
+- Start development server with `npx expo start`
+- Use development builds for BLE functionality
+- Test on physical devices (BLE requires hardware)
+
+### Testing Requirements
+- Test BLE communication between ESP32 and mobile app
+- Verify configuration loading and error handling
+- Test connection stability and reconnection
+- Validate message parsing and command handling
+- Test error scenarios and recovery mechanisms
+
+## File Naming Conventions
+
+### ESP32 Files
+- Headers: `BeamLink.h`, `BeamConfig.h`, `BeamUtils.h`
+- Source: `BeamLink.cpp`, `BeamConfig.cpp`, `BeamUtils.cpp`
+- Config: `beam.config.h` (device-specific)
+- Build: `platformio.ini`
+
+### React Native Files
+- Components: `PascalCase.tsx` (e.g., `DeviceCard.tsx`)
+- Hooks: `useCamelCase.ts` (e.g., `useBLE.ts`)
+- Types: `camelCase.ts` (e.g., `ble.ts`)
+- Constants: `camelCase.ts` (e.g., `ble.ts`)
+
+## Documentation Rules
+- Update README files for any structural changes
+- Document public APIs with clear examples
+- Include troubleshooting sections for common issues
+- Maintain consistent documentation style across components
+- Document configuration options and their effects
+
+## Security Considerations
+- Validate all incoming BLE messages
+- Implement proper error handling to prevent crashes
+- Use secure BLE pairing when required
+- Sanitize user inputs in mobile app
+- Implement proper permission handling for BLE access
+
+## Performance Guidelines
+- Optimize memory usage (target: ~15KB RAM, ~200KB Flash)
+- Minimize BLE connection time (< 2 seconds)
+- Keep message latency low (< 50ms)
+- Use efficient data structures and algorithms
+- Implement proper cleanup and resource management
+
+## Integration Rules
+- Maintain backward compatibility with existing templates
+- Follow established communication protocol
+- Use consistent error codes and messages
+- Implement proper logging for debugging
+- Support both development and production configurations

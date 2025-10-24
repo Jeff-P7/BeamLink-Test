@@ -164,7 +164,7 @@ const LEDControl: React.FC<LEDControlProps> = memo(({
       </View>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -254,8 +254,6 @@ const styles = StyleSheet.create({
   disabledButtonText: {
     color: UI_CONFIG.COLORS.textSecondary,
   },
-});
-
 });
 
 LEDControl.displayName = 'LEDControl';

@@ -204,7 +204,7 @@ const DeviceCard: React.FC<DeviceCardProps> = memo(({
       )}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -343,8 +343,6 @@ const styles = StyleSheet.create({
   buttonSpinner: {
     marginRight: UI_CONFIG.SPACING.xs,
   },
-});
-
 });
 
 DeviceCard.displayName = 'DeviceCard';

@@ -52,7 +52,7 @@ const ErrorBanner: React.FC<ErrorBannerProps> = memo(({
       )}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -76,8 +76,6 @@ const styles = StyleSheet.create({
     fontSize: UI_CONFIG.FONT_SIZES.md,
     fontWeight: 'bold',
   },
-});
-
 });
 
 ErrorBanner.displayName = 'ErrorBanner';
